@@ -1,21 +1,44 @@
 import streamlit as st
 from groq import Groq
-import pyttsx3
+from gtts import gTTS
 import PyPDF2
 import tempfile
+import base64
+import os
 
 # ========== CONFIG ==========
-GROQ_API_KEY = st.secrets["GROQ_API_KEY"]  # 🔁 Replace with your actual key
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]  # ✅ Use secret key
 MODEL_NAME = "llama3-70b-8192"
 
 # ========== INIT GROQ ==========
 client = Groq(api_key=GROQ_API_KEY)
 
-# ========== TTS ==========
+# ========== TTS with gTTS ==========
 def speak(text):
-    engine = pyttsx3.init()
-    engine.say(text)
-    engine.runAndWait()
+    try:
+        tts = gTTS(text)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+            tts.save(fp.name)
+            audio_file = fp.name
+
+        # Convert MP3 to base64
+        with open(audio_file, "rb") as f:
+            audio_bytes = f.read()
+            b64 = base64.b64encode(audio_bytes).decode()
+
+        # Streamlit Audio Player
+        audio_html = f"""
+        <audio autoplay controls>
+            <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+            Your browser does not support the audio element.
+        </audio>
+        """
+        st.markdown("### 🔈 Listen to the Answer")
+        st.markdown(audio_html, unsafe_allow_html=True)
+
+    except Exception as e:
+        st.error("TTS Failed")
+        st.text(str(e))
 
 # ========== PDF EXTRACT ==========
 def extract_text_from_pdf(file):
@@ -78,4 +101,4 @@ if st.button("🚀 Generate Response"):
     st.markdown(output)
 
     if use_tts:
-        speak(output[:300])
+        speak(output[:300])  # Limit to 300 chars for short speech
